@@ -49,17 +49,6 @@ cd secure-file-transfer-system
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the application
-python app.py
-Project Structure
-├── app.py                # Main application
-├── auth/                 # Authentication logic (2FA)
-├── encryption/           # Encryption and decryption modules
-├── attacks/              # Attack simulation and detection
-├── logs/                 # Logging and audit trail
-├── data/                 # File storage
-├── requirements.txt      # Dependencies
-
 # Use Cases
 Secure file sharing between users
 Protection of sensitive or confidential data
