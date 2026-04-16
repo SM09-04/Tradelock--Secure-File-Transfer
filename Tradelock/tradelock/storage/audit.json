@@ -1,0 +1,114 @@
+[
+  {
+    "id": "28CF3696",
+    "timestamp": "2026-04-09 11:50:37",
+    "action": "OTP_BRUTE_FORCE",
+    "filename": "Sample Data Networking.txt",
+    "result": "BLOCKED",
+    "details": "Attempt 6 blocked"
+  },
+  {
+    "id": "0B1C65D8",
+    "timestamp": "2026-04-09 11:50:34",
+    "action": "UPLOAD",
+    "filename": "Sample Data Networking.txt",
+    "result": "SUCCESS",
+    "details": "AES-256-GCM | 105 \u2192 133 bytes"
+  },
+  {
+    "id": "3F8540CB",
+    "timestamp": "2026-04-09 11:50:03",
+    "action": "TAMPER_ATTACK",
+    "filename": "Sample Data Networking.txt",
+    "result": "EXECUTED",
+    "details": "Byte 20: 0x2E \u2192 0xD1"
+  },
+  {
+    "id": "8C8AF32F",
+    "timestamp": "2026-04-09 11:49:51",
+    "action": "OTP_VERIFY",
+    "filename": "Sample Data Networking.txt",
+    "result": "SUCCESS",
+    "details": "TOTP verified"
+  },
+  {
+    "id": "4B92466F",
+    "timestamp": "2026-04-09 11:48:58",
+    "action": "UPLOAD",
+    "filename": "Sample Data Networking.txt",
+    "result": "SUCCESS",
+    "details": "AES-256-GCM | 105 \u2192 133 bytes"
+  },
+  {
+    "id": "8E51A1CB",
+    "timestamp": "2026-04-09 11:48:39",
+    "action": "INSECURE_TAMPER",
+    "filename": "Sample Data Networking.txt",
+    "result": "SILENT",
+    "details": "Plaintext modified \u2014 no integrity check, victim unaware"
+  },
+  {
+    "id": "46745D43",
+    "timestamp": "2026-04-09 11:48:29",
+    "action": "INSECURE_UPLOAD",
+    "filename": "Sample Data Networking.txt",
+    "result": "EXPOSED",
+    "details": "Plaintext | 105 bytes \u2014 no encryption"
+  },
+  {
+    "id": "7810CCEE",
+    "timestamp": "2026-04-08 21:08:43",
+    "action": "TAMPER_ATTACK",
+    "filename": "Sample Data Networking.txt",
+    "result": "EXECUTED",
+    "details": "Byte 20: 0x75 \u2192 0x8A"
+  },
+  {
+    "id": "60519FAC",
+    "timestamp": "2026-04-08 21:08:35",
+    "action": "OTP_BRUTE_FORCE",
+    "filename": "Sample Data Networking.txt",
+    "result": "BLOCKED",
+    "details": "Attempt 1 blocked"
+  },
+  {
+    "id": "42B22A51",
+    "timestamp": "2026-04-08 21:07:48",
+    "action": "INSECURE_DOWNLOAD",
+    "filename": "Sample Data Networking.txt",
+    "result": "DELIVERED_TAMPERED",
+    "details": "No integrity check \u2014 corrupted file delivered silently"
+  },
+  {
+    "id": "2757763C",
+    "timestamp": "2026-04-08 21:07:40",
+    "action": "INSECURE_TAMPER",
+    "filename": "Sample Data Networking.txt",
+    "result": "SILENT",
+    "details": "Plaintext modified \u2014 no integrity check, victim unaware"
+  },
+  {
+    "id": "286ABFDD",
+    "timestamp": "2026-04-08 21:07:34",
+    "action": "INSECURE_UPLOAD",
+    "filename": "Sample Data Networking.txt",
+    "result": "EXPOSED",
+    "details": "Plaintext | 105 bytes \u2014 no encryption"
+  },
+  {
+    "id": "8C8B6A10",
+    "timestamp": "2026-04-08 21:06:58",
+    "action": "OTP_BRUTE_FORCE",
+    "filename": "Sample Data Networking.txt",
+    "result": "BLOCKED",
+    "details": "Attempt 6 blocked"
+  },
+  {
+    "id": "36A2EBD6",
+    "timestamp": "2026-04-08 21:06:32",
+    "action": "UPLOAD",
+    "filename": "Sample Data Networking.txt",
+    "result": "SUCCESS",
+    "details": "AES-256-GCM | 105 \u2192 133 bytes"
+  }
+]

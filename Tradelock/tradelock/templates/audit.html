@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Audit Log</h1>
+    <p class="page-sub">Immutable record of all security events.</p>
+  </div>
+  <div style="display:flex;gap:.75rem;align-items:center">
+    <button class="btn btn-ghost" onclick="refreshLogs()">↻ Refresh</button>
+    <form method="POST" action="/audit/clear" onsubmit="return confirm('Clear all audit logs?')">
+      <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444">Clear logs</button>
+    </form>
+  </div>
+</div>
+
+{% if logs %}
+<div class="card" style="padding:0;overflow:hidden">
+  <table class="audit-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Time</th>
+        <th>Action</th>
+        <th>Filename</th>
+        <th>Result</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr class="audit-row">
+        <td class="mono text-muted">{{ log.id }}</td>
+        <td class="mono text-muted">{{ log.timestamp }}</td>
+        <td>
+          <span class="action-tag action-{{ log.action | lower | replace('_','-') }}">
+            {{ log.action }}
+          </span>
+        </td>
+        <td class="mono">{{ log.filename }}</td>
+        <td>
+          {% if log.result == "SUCCESS" %}
+            <span class="result-dot dot-green">●</span> SUCCESS
+          {% elif log.result in ["FAILED", "BLOCKED", "TAMPERED"] %}
+            <span class="result-dot dot-red">●</span> {{ log.result }}
+          {% elif log.result == "EXECUTED" %}
+            <span class="result-dot dot-orange">●</span> EXECUTED
+          {% else %}
+            <span class="result-dot dot-gray">●</span> {{ log.result }}
+          {% endif %}
+        </td>
+        <td class="text-muted">{{ log.details }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty-state">
+  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#c0c8d4" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+  <p>No events logged yet.</p>
+  <a href="/transfer" class="btn btn-ghost btn-sm">Go to Secure Transfer</a>
+</div>
+{% endif %}
+
+<div class="log-summary">
+  <span>{{ logs | length }} event{{ 's' if logs | length != 1 }}</span>
+  {% set secure = logs | selectattr('result', 'equalto', 'SUCCESS') | list | length %}
+  {% set failed = logs | selectattr('result', 'in', ['FAILED', 'BLOCKED', 'TAMPERED']) | list | length %}
+  <span><span class="result-dot dot-green">●</span> {{ secure }} success</span>
+  <span><span class="result-dot dot-red">●</span> {{ failed }} blocked/failed</span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshLogs() {
+  fetch("/audit/data").then(r => r.json()).then(() => location.reload());
+}
+</script>
+{% endblock %}

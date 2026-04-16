@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+{% block title %}File Transfer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">File Transfer</h1>
+    <p class="page-sub">Compare secure vs insecure transfer — and what tampering looks like in each.</p>
+  </div>
+</div>
+
+<!-- Tab switcher -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-secure-btn"   onclick="switchTab('secure')">🔒 Secure Transfer</button>
+  <button class="tab-btn"        id="tab-insecure-btn" onclick="switchTab('insecure')">⚠️ Insecure Transfer</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECURE TAB
+     ══════════════════════════════════════════════════════════════ -->
+<div id="tab-secure">
+<div class="grid-2">
+
+  <!-- LEFT -->
+  <div class="col">
+
+    <div class="card">
+      <div class="card-step">01</div>
+      <h2 class="card-title">Upload File</h2>
+      <p class="card-desc">Your file is encrypted with AES-256-GCM before storage. The key never leaves your session.</p>
+
+      <div class="drop-zone" id="dropZone">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Drop a file here or <label for="fileInput" class="link-label">browse</label></p>
+        <input type="file" id="fileInput" hidden />
+      </div>
+
+      <div id="uploadResult" class="hidden">
+        <div class="info-row"><span class="label">Filename</span><span class="value mono" id="r-name">—</span></div>
+        <div class="info-row"><span class="label">Original size</span><span class="value mono" id="r-orig">—</span></div>
+        <div class="info-row"><span class="label">Encrypted size</span><span class="value mono" id="r-enc">—</span></div>
+        <div class="info-row"><span class="label">Algorithm</span><span class="value mono">AES-256-GCM</span></div>
+        <div class="badge-row">
+          <span class="badge badge-green">🔒 Encrypted</span>
+          <span class="badge badge-blue">Nonce: 96-bit</span>
+          <span class="badge badge-blue">Auth tag: 128-bit</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="step-2fa" {% if not uploaded %}style="opacity:.4;pointer-events:none"{% endif %}>
+      <div class="card-step">02</div>
+      <h2 class="card-title">Two-Factor Authentication</h2>
+      <p class="card-desc">Scan the QR code with Google Authenticator, then enter the 6-digit code.</p>
+
+      {% if uploaded %}
+      <div class="qr-wrap">
+        <img src="/qr/{{ uploaded }}" alt="TOTP QR" class="qr-img" />
+        <p class="qr-hint">Scan with Google Authenticator</p>
+      </div>
+      {% else %}
+      <div class="qr-placeholder">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#c0c8d4" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <p>QR code appears after upload</p>
+      </div>
+      {% endif %}
+
+      <div class="otp-row">
+        <input class="input" id="otpInput" type="text" maxlength="6" placeholder="000000" autocomplete="off" />
+        <button class="btn btn-primary" onclick="verifyOtp()">Verify</button>
+      </div>
+      <div id="otpStatus" class="status-msg hidden"></div>
+    </div>
+
+    <div class="card" id="step-download" {% if not verified %}style="opacity:.4;pointer-events:none"{% endif %}>
+      <div class="card-step">03</div>
+      <h2 class="card-title">Download File</h2>
+      <p class="card-desc">AES-GCM verifies integrity before decrypting. Any tampering is detected and blocked.</p>
+
+      {% if tampered %}
+      <div class="alert alert-danger">⚠️ This file has been tampered with. Download will fail the integrity check.</div>
+      {% endif %}
+
+      <button class="btn btn-primary btn-full" onclick="downloadFile()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Decrypted File
+      </button>
+      <div id="downloadStatus" class="status-msg hidden"></div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: hacker view secure -->
+  <div class="col">
+    <div class="card card-dark" style="height:100%">
+      <div class="card-step card-step-dark">👁</div>
+      <h2 class="card-title card-title-light">Attacker's View — Secure</h2>
+      <p class="card-desc card-desc-light">What an interceptor captures from the encrypted channel.</p>
+
+      <div class="hex-display" id="hexDisplay">
+        <div class="hex-empty">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="1.5" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          <p>No data intercepted yet</p><p class="sub">Upload a file to see encrypted output</p>
+        </div>
+      </div>
+
+      <div id="securityNote" class="security-note hidden">
+        <div class="sec-item"><span class="sec-icon">🔒</span><div><strong>AES-GCM ensures confidentiality and integrity</strong><p>Ciphertext is indistinguishable from random noise without the key.</p></div></div>
+        <div class="sec-item"><span class="sec-icon">🧮</span><div><strong>Authentication tag prevents tampering</strong><p>Any modification to ciphertext is detected before decryption.</p></div></div>
+        <div class="sec-item"><span class="sec-icon">🎲</span><div><strong>Random nonce prevents ciphertext reuse</strong><p>Each encryption produces unique output, even for the same file.</p></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div><!-- /tab-secure -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     INSECURE TAB
+     ══════════════════════════════════════════════════════════════ -->
+<div id="tab-insecure" class="hidden">
+
+  <div class="alert alert-danger" style="margin-bottom:1.5rem">
+    ⚠️ <strong>Demonstration only.</strong> Files stored in plaintext — no encryption, no integrity protection.
+    Tampering goes completely undetected by the system.
+  </div>
+
+  <div class="grid-2">
+
+    <!-- LEFT -->
+    <div class="col">
+
+      <div class="card">
+        <div class="card-step">01</div>
+        <h2 class="card-title">Upload File &nbsp;<span class="badge badge-red">No Encryption</span></h2>
+        <p class="card-desc">File is saved exactly as-is. Anyone with storage access can read it directly.</p>
+
+        <div class="drop-zone" id="insecDrop">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Drop a file here or <label for="insecFile" class="link-label">browse</label></p>
+          <input type="file" id="insecFile" hidden />
+        </div>
+
+        <div id="insecUploadResult" class="hidden">
+          <div class="info-row"><span class="label">Filename</span><span class="value mono" id="ir-name">—</span></div>
+          <div class="info-row"><span class="label">Size</span><span class="value mono" id="ir-size">—</span></div>
+          <div class="info-row"><span class="label">Encryption</span><span class="value" style="color:#dc2626">❌ None</span></div>
+          <div class="info-row"><span class="label">Integrity check</span><span class="value" style="color:#dc2626">❌ None</span></div>
+        </div>
+      </div>
+
+      <div class="card" id="insecTamperCard" style="opacity:.4;pointer-events:none">
+        <div class="card-step">02</div>
+        <h2 class="card-title">Tamper File &nbsp;<span class="badge badge-red">Silent Attack</span></h2>
+        <p class="card-desc">Flip bytes in the stored plaintext. The system has no way to detect or warn the user.</p>
+
+        <button class="btn btn-danger btn-full" onclick="insecTamper()">💣 Tamper File (Silent)</button>
+        <div id="insecTamperResult" class="hidden" style="margin-top:.75rem"></div>
+      </div>
+
+      <div class="card" id="insecDownloadCard" style="opacity:.4;pointer-events:none">
+        <div class="card-step">03</div>
+        <h2 class="card-title">Download File &nbsp;<span class="badge badge-red">No Check</span></h2>
+        <p class="card-desc">File returned as-is. If tampered, you receive the corrupted version with no warning at all.</p>
+
+        <button class="btn btn-primary btn-full" onclick="insecDownload()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download File
+        </button>
+        <div id="insecDownloadStatus" class="status-msg hidden"></div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: hacker view insecure -->
+    <div class="col">
+      <div class="card card-dark" style="height:100%">
+        <div class="card-step card-step-dark">👁</div>
+        <h2 class="card-title card-title-light">Attacker's View — Insecure</h2>
+        <p class="card-desc card-desc-light">What an interceptor captures — fully readable plaintext.</p>
+
+        <div class="hex-display" id="insecHackView">
+          <div class="hex-empty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="1.5" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            <p>No data yet</p><p class="sub">Upload a file to see the plaintext exposure</p>
+          </div>
+        </div>
+
+        <div id="insecDangerNote" class="security-note hidden">
+          <div class="sec-item"><span class="sec-icon">🔓</span><div><strong>Data is fully readable</strong><p>Anyone intercepting the transfer can read the entire file contents.</p></div></div>
+          <div class="sec-item"><span class="sec-icon">🪓</span><div><strong>Tampering is invisible</strong><p>Without an integrity check, modified data arrives looking like a normal file.</p></div></div>
+          <div class="sec-item"><span class="sec-icon">👤</span><div><strong>No authentication required</strong><p>No 2FA — anyone who can reach the download URL gets the file.</p></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /tab-insecure -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById("tab-secure").classList.toggle("hidden", tab !== "secure");
+  document.getElementById("tab-insecure").classList.toggle("hidden", tab !== "insecure");
+  document.getElementById("tab-secure-btn").classList.toggle("active", tab === "secure");
+  document.getElementById("tab-insecure-btn").classList.toggle("active", tab === "insecure");
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(b) { return b < 1024 ? b + " B" : (b / 1024).toFixed(1) + " KB"; }
+function escHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function hexToAscii(h) {
+  let s = "";
+  for (let i = 0; i < h.length; i += 2) {
+    const c = parseInt(h.slice(i, i + 2), 16);
+    s += (c >= 32 && c < 127) ? String.fromCharCode(c) : "·";
+  }
+  return s;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SECURE TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+const dropZone  = document.getElementById("dropZone");
+const fileInput = document.getElementById("fileInput");
+
+dropZone.addEventListener("click",    () => fileInput.click());
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+dropZone.addEventListener("dragleave",() => dropZone.classList.remove("drag-over"));
+dropZone.addEventListener("drop", e => { e.preventDefault(); dropZone.classList.remove("drag-over"); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener("change",  () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  dropZone.innerHTML = `<p style="color:#6b7280">Encrypting <strong>${escHtml(file.name)}</strong>…</p>`;
+
+  fetch("/upload", { method: "POST", body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { toast(d.error, "error"); return; }
+      document.getElementById("r-name").textContent = d.filename;
+      document.getElementById("r-orig").textContent = fmt(d.original_size);
+      document.getElementById("r-enc").textContent  = fmt(d.encrypted_size);
+      document.getElementById("uploadResult").classList.remove("hidden");
+
+      const hex  = d.hex_preview;
+      const rows = [];
+      for (let i = 0; i < hex.length; i += 32)
+        rows.push(`<span class="hex-offset">${(i/2).toString(16).padStart(4,"0")}</span>  ${hex.slice(i,i+32).replace(/(.{2})/g,"$1 ")}  <span class="hex-ascii">${hexToAscii(hex.slice(i,i+32))}</span>`);
+      document.getElementById("hexDisplay").innerHTML =
+        `<div class="hex-header">Intercepted ciphertext — AES-256-GCM encrypted</div>
+         <pre class="hex-body">${rows.join("\n")}\n<span class="hex-more">… unreadable without decryption key</span></pre>`;
+      document.getElementById("securityNote").classList.remove("hidden");
+
+      const s2 = document.getElementById("step-2fa");
+      s2.style.opacity = "1"; s2.style.pointerEvents = "auto";
+
+      const existing = document.querySelector(".qr-img");
+      if (!existing) {
+        document.querySelector(".qr-placeholder").outerHTML =
+          `<div class="qr-wrap"><img src="/qr/${d.file_id}" class="qr-img" /><p class="qr-hint">Scan with Google Authenticator</p></div>`;
+      } else {
+        existing.src = `/qr/${d.file_id}`;
+      }
+      toast("File encrypted & uploaded", "success");
+    })
+    .catch(() => toast("Upload failed", "error"));
+}
+
+function verifyOtp() {
+  const code = document.getElementById("otpInput").value.trim();
+  if (!code) { toast("Enter the 6-digit code", "error"); return; }
+  fetch("/verify-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) })
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById("otpStatus");
+      el.textContent = d.message;
+      el.className = d.ok ? "status-msg status-ok" : "status-msg status-err";
+      if (d.ok) {
+        const sd = document.getElementById("step-download");
+        sd.style.opacity = "1"; sd.style.pointerEvents = "auto";
+      }
+    });
+}
+document.getElementById("otpInput").addEventListener("keyup", e => { if (e.key === "Enter") verifyOtp(); });
+
+function downloadFile() {
+  fetch("/download")
+    .then(r => {
+      if (r.ok) return r.blob().then(b => ({ ok: true, blob: b }));
+      return r.json().then(d => ({ ok: false, data: d }));
+    })
+    .then(result => {
+      const el = document.getElementById("downloadStatus");
+      if (result.ok) {
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement("a"); a.href = url; a.download = ""; a.click();
+        el.textContent = "✅ File decrypted and downloaded successfully.";
+        el.className = "status-msg status-ok";
+        toast("Downloaded", "success");
+      } else {
+        el.textContent = result.data?.error === "tampered"
+          ? "❌ Integrity check failed — file has been tampered with. Decryption blocked by AES-GCM."
+          : "❌ " + (result.data?.error || "Download failed");
+        el.className = "status-msg status-err";
+        toast(result.data?.error === "tampered" ? "Tamper detected — blocked" : "Download failed", "error");
+      }
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  INSECURE TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+const insecDrop = document.getElementById("insecDrop");
+const insecFile = document.getElementById("insecFile");
+
+insecDrop.addEventListener("click",    () => insecFile.click());
+insecDrop.addEventListener("dragover", e => { e.preventDefault(); insecDrop.classList.add("drag-over"); });
+insecDrop.addEventListener("dragleave",() => insecDrop.classList.remove("drag-over"));
+insecDrop.addEventListener("drop", e => { e.preventDefault(); insecDrop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) handleInsecFile(e.dataTransfer.files[0]); });
+insecFile.addEventListener("change",  () => { if (insecFile.files[0]) handleInsecFile(insecFile.files[0]); });
+
+function handleInsecFile(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  insecDrop.innerHTML = `<p style="color:#6b7280">Uploading <strong>${escHtml(file.name)}</strong>…</p>`;
+
+  fetch("/insecure-upload", { method: "POST", body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { toast(d.error, "error"); return; }
+      document.getElementById("ir-name").textContent = d.filename;
+      document.getElementById("ir-size").textContent = fmt(d.size);
+      document.getElementById("insecUploadResult").classList.remove("hidden");
+
+      // Plaintext hacker view — readable!
+      document.getElementById("insecHackView").innerHTML =
+        `<div class="hex-header" style="color:#fc8181">⚠ Intercepted plaintext — fully readable!</div>
+         <pre class="hex-body" style="color:#f6ad55;white-space:pre-wrap;word-break:break-all">${escHtml(d.preview)}\n<span class="hex-more" style="color:#718096">… [entire file readable — no encryption]</span></pre>`;
+      document.getElementById("insecDangerNote").classList.remove("hidden");
+
+      ["insecTamperCard", "insecDownloadCard"].forEach(id => {
+        const el = document.getElementById(id);
+        el.style.opacity = "1"; el.style.pointerEvents = "auto";
+      });
+      toast("Uploaded — unencrypted, data fully exposed", "warning");
+    })
+    .catch(() => toast("Upload failed", "error"));
+}
+
+function insecTamper() {
+  fetch("/insecure-tamper", { method: "POST" })
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById("insecTamperResult");
+      el.classList.remove("hidden");
+      if (d.ok) {
+        el.innerHTML = `
+          <div class="result-badge result-executed">EXECUTED — SILENT</div>
+          <p style="font-size:.85rem;margin:.5rem 0">File modified. <strong>The user receives zero warning on download.</strong></p>
+          <table class="result-table">
+            <tr><td>Original bytes</td><td class="mono" style="color:#68d391">${escHtml(d.original)}</td></tr>
+            <tr><td>Corrupted bytes</td><td class="mono" style="color:#fc8181">${escHtml(d.corrupted)}</td></tr>
+          </table>
+          <div class="result-note" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca">
+            🚨 No integrity check exists — downloading now returns the corrupted file with no alert.
+          </div>`;
+        toast("File silently corrupted — no alert will fire on download", "warning");
+      } else {
+        el.textContent = d.message;
+      }
+    });
+}
+
+function insecDownload() {
+  fetch("/insecure-download")
+    .then(r => {
+      if (r.ok) return r.blob().then(b => ({ ok: true, blob: b }));
+      return r.json().then(d => ({ ok: false, data: d }));
+    })
+    .then(result => {
+      const el = document.getElementById("insecDownloadStatus");
+      if (result.ok) {
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement("a"); a.href = url; a.download = ""; a.click();
+        // Deliberately no mention of tampering — this IS the vulnerability being demonstrated
+        el.textContent = "✅ File downloaded. (No integrity check was performed.)";
+        el.className = "status-msg status-ok";
+        toast("Downloaded — no integrity check, file may be corrupted", "warning");
+      } else {
+        el.textContent = "❌ " + (result.data?.error || "Failed");
+        el.className = "status-msg status-err";
+      }
+    });
+}
+</script>
+{% endblock %}

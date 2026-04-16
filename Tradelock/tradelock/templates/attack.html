@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Attack Lab{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Attack Lab</h1>
+  <p class="page-sub">Simulate real-world attacks and observe the defenses that block them.</p>
+</div>
+
+{% if not has_file %}
+<div class="alert alert-info" style="margin-bottom:2rem">
+  ℹ️ Upload a file on the <a href="/transfer">Secure Transfer</a> page first to enable attack simulations.
+</div>
+{% endif %}
+
+<div class="attack-grid">
+
+  <!-- TAMPER -->
+  <div class="attack-card">
+    <div class="attack-header">
+      <span class="attack-icon">💣</span>
+      <div>
+        <h3>Tamper Attack</h3>
+        <p>Flip a single byte in the encrypted file to simulate an adversary modifying data in transit.</p>
+      </div>
+    </div>
+    <div class="attack-body">
+      <div class="attack-explain">
+        <strong>What happens:</strong> A byte in the ciphertext is XOR'd with <code>0xFF</code>, corrupting the file.
+        AES-GCM's authentication tag will fail during decryption, immediately detecting the tampering.
+      </div>
+      <button class="btn btn-danger btn-full" id="tamperBtn" onclick="runTamper()"
+        {% if not has_file %}disabled{% endif %}>
+        💣 Tamper File
+      </button>
+      <div id="tamperResult" class="attack-result hidden"></div>
+    </div>
+  </div>
+
+  <!-- BRUTE FORCE -->
+  <div class="attack-card">
+    <div class="attack-header">
+      <span class="attack-icon">🔓</span>
+      <div>
+        <h3>OTP Brute Force</h3>
+        <p>Attempt to guess the 6-digit TOTP code by trying many random values rapidly.</p>
+      </div>
+    </div>
+    <div class="attack-body">
+      <div class="attack-explain">
+        <strong>What happens:</strong> The server rate-limits OTP attempts and blocks the session after 5 failures.
+        With 10<sup>6</sup> possible codes, brute force is impractical even without rate limiting.
+      </div>
+      <button class="btn btn-danger btn-full" id="bruteBtn" onclick="runBrute()"
+        {% if not has_file %}disabled{% endif %}>
+        🔓 Simulate Brute Force
+      </button>
+      <div id="bruteResult" class="attack-result hidden"></div>
+    </div>
+  </div>
+
+  <!-- REPLAY -->
+  <div class="attack-card">
+    <div class="attack-header">
+      <span class="attack-icon">🔁</span>
+      <div>
+        <h3>Replay Attack</h3>
+        <p>Attempt to reuse an OTP code that was captured from a previous session.</p>
+      </div>
+    </div>
+    <div class="attack-body">
+      <div class="attack-explain">
+        <strong>What happens:</strong> A TOTP code from 90 seconds ago is replayed.
+        Because TOTP codes change every 30 seconds and have a strict time window, expired codes are rejected.
+      </div>
+      <button class="btn btn-danger btn-full" id="replayBtn" onclick="runReplay()"
+        {% if not has_file %}disabled{% endif %}>
+        🔁 Simulate Replay Attack
+      </button>
+      <div id="replayResult" class="attack-result hidden"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Defense summary -->
+<div class="card" style="margin-top:2rem">
+  <h2 class="card-title">Defense Summary</h2>
+  <div class="defense-grid">
+    <div class="defense-item">
+      <div class="defense-icon">🔒</div>
+      <div>
+        <strong>AES-256-GCM</strong>
+        <p>Authenticated encryption provides both confidentiality and integrity. Any modification to ciphertext is detected.</p>
+      </div>
+    </div>
+    <div class="defense-item">
+      <div class="defense-icon">📱</div>
+      <div>
+        <strong>TOTP 2FA</strong>
+        <p>Time-based codes change every 30 seconds. Stolen passwords alone cannot grant access.</p>
+      </div>
+    </div>
+    <div class="defense-item">
+      <div class="defense-icon">🛡️</div>
+      <div>
+        <strong>Rate Limiting</strong>
+        <p>OTP attempts are capped per session, making brute force statistically infeasible.</p>
+      </div>
+    </div>
+    <div class="defense-item">
+      <div class="defense-icon">⏱️</div>
+      <div>
+        <strong>Token Expiry</strong>
+        <p>TOTP codes are valid for 30 seconds with a ±1 window. Replay attacks with old tokens always fail.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function runTamper() {
+  const btn = document.getElementById("tamperBtn");
+  btn.disabled = true; btn.textContent = "Tampering…";
+
+  fetch("/attack/tamper", { method: "POST" })
+    .then(r => r.json())
+    .then(d => {
+      btn.textContent = "💣 Tamper File";
+      const el = document.getElementById("tamperResult");
+      el.classList.remove("hidden");
+
+      if (d.ok) {
+        el.innerHTML = `
+          <div class="result-badge result-executed">EXECUTED</div>
+          <p>${d.message}</p>
+          <table class="result-table">
+            <tr><td>Byte index</td><td class="mono">${d.byte_index}</td></tr>
+            <tr><td>Original</td><td class="mono">${d.original}</td></tr>
+            <tr><td>Modified</td><td class="mono">${d.modified}</td></tr>
+          </table>
+          <div class="result-note">Now try downloading the file — AES-GCM will detect the corruption and block decryption.</div>`;
+        toast("File tampered. Try downloading to see integrity check fail.", "warning");
+      } else {
+        el.innerHTML = `<div class="result-badge result-blocked">BLOCKED</div><p>${d.message}</p>`;
+      }
+    })
+    .catch(() => { btn.disabled = false; toast("Error", "error"); });
+}
+
+function runBrute() {
+  const btn = document.getElementById("bruteBtn");
+  btn.disabled = true; btn.textContent = "Simulating…";
+
+  fetch("/attack/brute-force", { method: "POST" })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false; btn.textContent = "🔓 Simulate Brute Force";
+      const el = document.getElementById("bruteResult");
+      el.classList.remove("hidden");
+
+      const rows = d.results.map(r =>
+        `<tr>
+          <td>#${r.attempt}</td>
+          <td class="mono">${r.code}</td>
+          <td><span class="badge ${r.status === 'BLOCKED' ? 'badge-red' : r.status === 'VALID' ? 'badge-green' : 'badge-gray'}">${r.status}</span></td>
+          <td>${r.reason || ""}</td>
+        </tr>`
+      ).join("");
+
+      el.innerHTML = `
+        <div class="result-badge result-blocked">BLOCKED</div>
+        <p>${d.message}</p>
+        <table class="result-table">
+          <thead><tr><th>Attempt</th><th>Code</th><th>Result</th><th>Reason</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+      toast("Brute force blocked by rate limiting", "warning");
+    })
+    .catch(() => { btn.disabled = false; });
+}
+
+function runReplay() {
+  const btn = document.getElementById("replayBtn");
+  btn.disabled = true; btn.textContent = "Simulating…";
+
+  fetch("/attack/replay", { method: "POST" })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false; btn.textContent = "🔁 Simulate Replay Attack";
+      const el = document.getElementById("replayResult");
+      el.classList.remove("hidden");
+
+      el.innerHTML = `
+        <div class="result-badge result-blocked">BLOCKED</div>
+        <table class="result-table">
+          <tr><td>Captured OTP</td><td class="mono">${d.captured_code}</td></tr>
+          <tr><td>Captured at</td><td>~90 seconds ago</td></tr>
+          <tr><td>Accepted</td><td class="mono">${d.accepted ? "YES ⚠️" : "NO ✅"}</td></tr>
+        </table>
+        <div class="result-note">${d.explanation}</div>`;
+      toast("Replay attack prevented", "warning");
+    })
+    .catch(() => { btn.disabled = false; });
+}
+</script>
+{% endblock %}
